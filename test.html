@@ -2,30 +2,58 @@
 
 <head>
     <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"
-        type="application/javascript"></script>
+    <script type="text/javascript" src="https://unpkg.com/xlsx@0.15.1/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
-    <input type="file" id="excelFile" name="excelFile">
+    <input type="file" id="excel_file" name="excel_file">
 
     <script>
-        const input = document.getElementById('excelFile')
-        input.addEventListener('change', () => {
-            readXlsxFile(input.files[0]).then((data) => {
-                // `data` is an array of rows
-                // each row being an array of cells.
-            })
+        const input = document.getElementById('excel_file')
+        input.addEventListener('change', event => {
+            readExcel(event.target.files[0]);
         })
 
-        async function init() {
+        function readExcel(file) {
+            let reader = new FileReader();
+            reader.readAsArrayBuffer(event.target.files[0]);
+            reader.onload = function(event){
+                let data = new Uint8Array(reader.result);
+                let work_book = XLSX.read(data, {type:'array'});
+                let sheet_name = work_book.SheetNames;
+                let sheet_data = XLSX.utils.sheet_to_json(work_book.Sheets[sheet_name[0]], {header:1});
+                let transactions = [];
+                if(sheet_data.length > 0)
+                {
+                    for(let row = 0; row < sheet_data.length; row++)
+                    {
+                        let transaction = {};
+                        if(row !== 0) {
+                            transaction.targetAddress = sheet_data[row][0];
+                            transaction.nftContractAddress = sheet_data[row][1];
+                            transaction.nftTokenIds = [sheet_data[row][2]];
+                            let similarTransactionIndex = transactions.findIndex(tx => {
+                                return tx.targetAddress === transaction.targetAddress && tx.nftContractAddress === transaction.nftContractAddress
+                            })
 
-            // read from a file
-            const workbook = new ExcelJs.Workbook();
-            await workbook.xlsx.readFile(filename);
+                            if (similarTransactionIndex >= 0) {
+                                transactions[similarTransactionIndex].nftTokenIds = transactions[similarTransactionIndex].nftTokenIds.concat(transaction.nftTokenIds)
+                            }
+                            else {
+                                transactions.push(transaction);
+                            }
+                        }
+                    }
+                }
+                processTransactions(transactions);
+            }
+        }
+
+        async function processTransactions(transactions) {
 
             const nftAbi = [
                 'function setApprovalForAll(address operator, bool _approved)',
+                'function isApprovedForAll(address owner, address operator) view returns (bool)'
             ]
             const sendNftContractAbi = [
                 {
@@ -58,39 +86,49 @@
                 }
             ]
 
-            const FROM_ADDRESS = "0xB7CAC735994dadeC6E7af196Eb5D71FD7541389D"
-            const RECEIVER_ADDRESS = "0x38d3B085D181e4ceb0af496C6E065d518163ae93"
-            const CONTRACT_ADDRESS = "0x7DAC78B658FbE1930eaB0a78464bD8Db658Da103"
-            const NFT_CONTRACT_ADDRESS = "0x78cCec16372b2647DbFdA5FD70AF80ed4A97e412"
+            const SEND_NFT_CONTRACT_ADDRESS = "0x7DAC78B658FbE1930eaB0a78464bD8Db658Da103";
 
             const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
             await provider.send("eth_requestAccounts", []);
             const accounts = await provider.listAccounts();
-
             const signer = provider.getSigner(accounts[0]);
-            console.log("----", signer._address)
 
-            const nftContract = new ethers.Contract(
-                NFT_CONTRACT_ADDRESS,
-                nftAbi,
-                signer
-            );
-            await nftContract.setApprovalForAll(CONTRACT_ADDRESS, true)
+            for (i in transactions) {
+                const transaction = transactions[i];
 
-            const sendNftContract = new ethers.Contract(
-                CONTRACT_ADDRESS,
-                sendNftContractAbi,
-                signer
-            );
-            await sendNftContract.batchSendErc721(
-                signer.address,
-                RECEIVER_ADDRESS,
-                "0x78cCec16372b2647DbFdA5FD70AF80ed4A97e412",
-                [0]
-            )
+                // get permission for sendNft contract
+                const nftContract = new ethers.Contract(
+                    transaction.nftContractAddress,
+                    nftAbi,
+                    signer
+                );
+                const isApproved = await nftContract.isApprovedForAll(signer._address, SEND_NFT_CONTRACT_ADDRESS)
+                console.log('Check approval: ',isApproved)
+
+                if (!isApproved) {
+                    const approveTxn = await nftContract.setApprovalForAll(SEND_NFT_CONTRACT_ADDRESS, true)
+                    await approveTxn.wait();
+                    console.log("Approval done")
+                }
+
+                // call sendNftContract
+                const sendNftContract = new ethers.Contract(
+                    SEND_NFT_CONTRACT_ADDRESS,
+                    sendNftContractAbi,
+                    signer
+                )
+                const sendTxn = await sendNftContract.batchSendErc721(
+                    signer._address,
+                    transaction.targetAddress,
+                    transaction.nftContractAddress,
+                    transaction.nftTokenIds
+                )
+                await sendTxn.wait();
+                console.log("Transferred: ", transaction)
+            }
+            
         }
 
-        init();
     </script>
 
 </body>
