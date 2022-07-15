@@ -1,0 +1,14 @@
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"
+        type="application/javascript"></script>
+        const input = document.getElementById('excelFile')
+        input.addEventListener('change', () => {
+            readXlsxFile(input.files[0]).then((data) => {
+                // `data` is an array of rows
+                // each row being an array of cells.
+            })
+        })
+            // read from a file
+            const workbook = new ExcelJs.Workbook();
+            await workbook.xlsx.readFile(filename);
+
+            console.log("----", signer._address)
