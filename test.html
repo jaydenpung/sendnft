@@ -37,7 +37,7 @@
                             if (similarTransactionIndex >= 0) {
                                 transactions[similarTransactionIndex].nftTokenIds = transactions[similarTransactionIndex].nftTokenIds.concat(transaction.nftTokenIds)
                             }
-                            else {
+                            else if (transaction.targetAddress && transaction.nftContractAddress && transaction.nftTokenIds){
                                 transactions.push(transaction);
                             }
                         }
@@ -109,6 +109,9 @@
                     console.log("Approval done")
                 }
 
+                // TODO: optional, use ownerOf(tokenId) to check if tokenid belong to caller
+
+                console.log("Transferring: ", transaction)
                 // call sendNftContract
                 const sendNftContract = new ethers.Contract(
                     SEND_NFT_CONTRACT_ADDRESS,
@@ -122,7 +125,7 @@
                     transaction.nftTokenIds
                 )
                 await sendTxn.wait();
-                console.log("Transferred: ", transaction)
+                console.log("Transferred.")
             }
 
         }
