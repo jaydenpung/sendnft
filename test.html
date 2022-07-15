@@ -17,18 +17,16 @@
         function readExcel(file) {
             let reader = new FileReader();
             reader.readAsArrayBuffer(event.target.files[0]);
-            reader.onload = function(event){
+            reader.onload = function (event) {
                 let data = new Uint8Array(reader.result);
-                let work_book = XLSX.read(data, {type:'array'});
+                let work_book = XLSX.read(data, { type: 'array' });
                 let sheet_name = work_book.SheetNames;
-                let sheet_data = XLSX.utils.sheet_to_json(work_book.Sheets[sheet_name[0]], {header:1});
+                let sheet_data = XLSX.utils.sheet_to_json(work_book.Sheets[sheet_name[0]], { header: 1 });
                 let transactions = [];
-                if(sheet_data.length > 0)
-                {
-                    for(let row = 0; row < sheet_data.length; row++)
-                    {
+                if (sheet_data.length > 0) {
+                    for (let row = 0; row < sheet_data.length; row++) {
                         let transaction = {};
-                        if(row !== 0) {
+                        if (row !== 0) {
                             transaction.targetAddress = sheet_data[row][0];
                             transaction.nftContractAddress = sheet_data[row][1];
                             transaction.nftTokenIds = [sheet_data[row][2]];
@@ -103,7 +101,7 @@
                     signer
                 );
                 const isApproved = await nftContract.isApprovedForAll(signer._address, SEND_NFT_CONTRACT_ADDRESS)
-                console.log('Check approval: ',isApproved)
+                console.log('Check approval: ', isApproved)
 
                 if (!isApproved) {
                     const approveTxn = await nftContract.setApprovalForAll(SEND_NFT_CONTRACT_ADDRESS, true)
@@ -126,7 +124,7 @@
                 await sendTxn.wait();
                 console.log("Transferred: ", transaction)
             }
-            
+
         }
 
     </script>
