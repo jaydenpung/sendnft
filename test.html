@@ -7,44 +7,42 @@
 
 <body>
     <input type="file" id="excel_file" name="excel_file">
+    <button onclick="run()">Run</button>
 
     <script>
-        const input = document.getElementById('excel_file')
-        input.addEventListener('change', event => {
-            readExcel(event.target.files[0]);
-        })
-
         function readExcel(file) {
-            let reader = new FileReader();
-            reader.readAsArrayBuffer(event.target.files[0]);
-            reader.onload = function (event) {
-                let data = new Uint8Array(reader.result);
-                let work_book = XLSX.read(data, { type: 'array' });
-                let sheet_name = work_book.SheetNames;
-                let sheet_data = XLSX.utils.sheet_to_json(work_book.Sheets[sheet_name[0]], { header: 1 });
-                let transactions = [];
-                if (sheet_data.length > 0) {
-                    for (let row = 0; row < sheet_data.length; row++) {
-                        let transaction = {};
-                        if (row !== 0) {
-                            transaction.targetAddress = sheet_data[row][0];
-                            transaction.nftContractAddress = sheet_data[row][1];
-                            transaction.nftTokenIds = [sheet_data[row][2]];
-                            let similarTransactionIndex = transactions.findIndex(tx => {
-                                return tx.targetAddress === transaction.targetAddress && tx.nftContractAddress === transaction.nftContractAddress
-                            })
+            return new Promise((res, rej) => {
+                let reader = new FileReader();
+                reader.readAsArrayBuffer(file);
+                reader.onload = function (event) {
+                    let data = new Uint8Array(reader.result);
+                    let work_book = XLSX.read(data, { type: 'array' });
+                    let sheet_name = work_book.SheetNames;
+                    let sheet_data = XLSX.utils.sheet_to_json(work_book.Sheets[sheet_name[0]], { header: 1 });
+                    let transactions = [];
+                    if (sheet_data.length > 0) {
+                        for (let row = 0; row < sheet_data.length; row++) {
+                            let transaction = {};
+                            if (row !== 0) {
+                                transaction.targetAddress = sheet_data[row][0];
+                                transaction.nftContractAddress = sheet_data[row][1];
+                                transaction.nftTokenIds = [sheet_data[row][2]];
+                                let similarTransactionIndex = transactions.findIndex(tx => {
+                                    return tx.targetAddress === transaction.targetAddress && tx.nftContractAddress === transaction.nftContractAddress
+                                })
 
-                            if (similarTransactionIndex >= 0) {
-                                transactions[similarTransactionIndex].nftTokenIds = transactions[similarTransactionIndex].nftTokenIds.concat(transaction.nftTokenIds)
-                            }
-                            else if (transaction.targetAddress && transaction.nftContractAddress && transaction.nftTokenIds){
-                                transactions.push(transaction);
+                                if (similarTransactionIndex >= 0) {
+                                    transactions[similarTransactionIndex].nftTokenIds = transactions[similarTransactionIndex].nftTokenIds.concat(transaction.nftTokenIds)
+                                }
+                                else if (transaction.targetAddress && transaction.nftContractAddress && transaction.nftTokenIds){
+                                    transactions.push(transaction);
+                                }
                             }
                         }
                     }
+                    res(transactions);
                 }
-                processTransactions(transactions);
-            }
+            });
         }
 
         async function processTransactions(transactions) {
@@ -130,6 +128,11 @@
 
         }
 
+        async function run() {
+            const file = document.getElementById('excel_file').files[0];
+            const transactions = await readExcel(file);
+            processTransactions(transactions);
+        }
     </script>
 
 </body>
