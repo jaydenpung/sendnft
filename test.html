@@ -98,13 +98,19 @@
                     nftAbi,
                     signer
                 );
-                const isApproved = await nftContract.isApprovedForAll(signer._address, SEND_NFT_CONTRACT_ADDRESS)
-                console.log('Check approval: ', isApproved)
+                try {
+                    const isApproved = await nftContract.isApprovedForAll(signer._address, SEND_NFT_CONTRACT_ADDRESS)
+                    console.log('Check approval: ', isApproved)
 
-                if (!isApproved) {
-                    const approveTxn = await nftContract.setApprovalForAll(SEND_NFT_CONTRACT_ADDRESS, true)
-                    await approveTxn.wait();
-                    console.log("Approval done")
+                    if (!isApproved) {
+                        const approveTxn = await nftContract.setApprovalForAll(SEND_NFT_CONTRACT_ADDRESS, true)
+                        await approveTxn.wait();
+                        console.log("Approval done")
+                    }
+                }
+                catch (ex) {
+                    alert(`Unable to set approval for NFT: ${transaction.nftContractAddress}`)
+                    continue;
                 }
 
                 // TODO: optional, use ownerOf(tokenId) to check if tokenid belong to caller
