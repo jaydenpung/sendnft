@@ -8,6 +8,8 @@
 <body>
     <input type="file" id="excel_file" name="excel_file">
     <button onclick="run()">Run</button>
+    <br/>
+    <pre id="message"></pre>
 
     <script>
         function readExcel(file) {
@@ -49,7 +51,8 @@
 
             const nftAbi = [
                 'function setApprovalForAll(address operator, bool _approved)',
-                'function isApprovedForAll(address owner, address operator) view returns (bool)'
+                'function isApprovedForAll(address owner, address operator) view returns (bool)',
+                'function ownerOf(uint256 _tokenId) external view returns (address)',
             ]
             const sendNftContractAbi = [
                 {
@@ -84,6 +87,8 @@
 
             const SEND_NFT_CONTRACT_ADDRESS = "0x7DAC78B658FbE1930eaB0a78464bD8Db658Da103";
 
+            const messageElement = document.getElementById('message');
+
             const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
             await provider.send("eth_requestAccounts", []);
             const accounts = await provider.listAccounts();
@@ -98,22 +103,35 @@
                     nftAbi,
                     signer
                 );
+                let isApproved
                 try {
-                    const isApproved = await nftContract.isApprovedForAll(signer._address, SEND_NFT_CONTRACT_ADDRESS)
-                    console.log('Check approval: ', isApproved)
-
-                    if (!isApproved) {
-                        const approveTxn = await nftContract.setApprovalForAll(SEND_NFT_CONTRACT_ADDRESS, true)
-                        await approveTxn.wait();
-                        console.log("Approval done")
-                    }
+                    isApproved = await nftContract.isApprovedForAll(signer._address, SEND_NFT_CONTRACT_ADDRESS)
                 }
                 catch (ex) {
-                    alert(`Unable to set approval for NFT: ${transaction.nftContractAddress}`)
-                    continue;
+                    console.log(ex);
+                }
+                if (!isApproved) {
+                    const approveTxn = await nftContract.setApprovalForAll(SEND_NFT_CONTRACT_ADDRESS, true)
+                    await approveTxn.wait();
+                    console.log("Approval done")
                 }
 
-                // TODO: optional, use ownerOf(tokenId) to check if tokenid belong to caller
+                // check if tokenid belong to caller
+                const filteredTokenids = []
+                for (tokenId of transaction.nftTokenIds) {
+                    const nftOwner = await nftContract.ownerOf(tokenId);
+                    if (nftOwner !== signer._address) {
+                        const MESSAGE = `You do not own: ${transaction.nftContractAddress} tokenId: ${tokenId}`;
+                        console.log(MESSAGE);
+                        messageElement.textContent += `${MESSAGE}\r\n`;
+                        continue;
+                    }
+                    filteredTokenids.push(tokenId);
+                }
+                transaction.nftTokenIds = filteredTokenids;
+                if (!transaction.nftTokenIds.length) {
+                    continue;
+                }
 
                 console.log("Transferring: ", transaction)
                 // call sendNftContract
